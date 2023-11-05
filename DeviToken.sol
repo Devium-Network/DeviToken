@@ -1,98 +1,19 @@
-//SPDX-License-Identifier: UNLICENSED
+// File: @openzeppelin/contracts/utils/Context.sol
+
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
+
 pragma solidity ^0.8.0;
 
-interface IERC20 {
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `recipient`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address recipient, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `sender` to `recipient` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-}
-
-interface IERC20Metadata is IERC20 {
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() external view returns (string memory);
-
-    /**
-     * @dev Returns the symbol of the token.
-     */
-    function symbol() external view returns (string memory);
-
-    /**
-     * @dev Returns the decimals places of the token.
-     */
-    function decimals() external view returns (uint8);
-}
-
+/**
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
         return msg.sender;
@@ -103,16 +24,45 @@ abstract contract Context {
     }
 }
 
+// File: @openzeppelin/contracts/access/Ownable.sol
+
+// OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
+ */
 abstract contract Ownable is Context {
     address private _owner;
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
 
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
     constructor() {
         _transferOwnership(_msgSender());
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        _checkOwner();
+        _;
     }
 
     /**
@@ -123,11 +73,10 @@ abstract contract Ownable is Context {
     }
 
     /**
-     * @dev Throws if called by any account other than the owner.
+     * @dev Throws if the sender is not the owner.
      */
-    modifier onlyOwner() {
+    function _checkOwner() internal view virtual {
         require(owner() == _msgSender(), "Ownable: caller is not the owner");
-        _;
     }
 
     /**
@@ -146,7 +95,10 @@ abstract contract Ownable is Context {
      * Can only be called by the current owner.
      */
     function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        require(
+            newOwner != address(0),
+            "Ownable: new owner is the zero address"
+        );
         _transferOwnership(newOwner);
     }
 
@@ -161,201 +113,160 @@ abstract contract Ownable is Context {
     }
 }
 
+// File: @openzeppelin/contracts/token/BEP20/IBEP20.sol
 
-contract TokenVesting is Ownable{
-    
-    struct VestedToken{
-        uint256 cliff;
-        uint256 start;
-        uint256 duration;
-        uint256 releasedToken;
-        uint256 totalToken;
-        bool revoked;
-    }
-    
-    mapping (address => VestedToken) public vestedUser; 
-    
-    // default Vesting parameter values
-    uint256 private _cliff = 2678400; // 31 days 
-    uint256 private _duration = 31536000; // 365 days 
-    bool private _revoked = false;
-    
-    IERC20 public DEVIToken;
-    address public _presale;
+// OpenZeppelin Contracts (last updated v4.6.0) (token/BEP20/IBEP20.sol)
 
-    event TokenReleased(address indexed account, uint256 amount);
-    event VestingRevoked(address indexed account);
-    
-    /**
-     * @dev Its a modifier in which we authenticate the caller is owner or DEVIToken Smart Contract
-     */ 
-    modifier onlyDeviTokenAndOwner() {
-        require(msg.sender==owner() || msg.sender == address(DEVIToken) || msg.sender == _presale);
-        _;
-    }
-    
-    /**
-     * @dev First we have to set token address before doing any thing 
-     * @param token Tiger Smart contract Address
-     */
-     
-    function setTokenAddress(IERC20 token) public onlyOwner returns(bool){
-        DEVIToken = token;
-        return true;
-    }
+pragma solidity ^0.8.0;
 
-    function setPresaleAddress(address add) public onlyOwner returns(bool){
-        _presale = add;
-        return true;
-    }
-    
+/**
+ * @dev Interface of the BEP20 standard as defined in the EIP.
+ */
+interface IBEP20 {
     /**
-     * @dev this will set the beneficiary with default vesting 
-     * parameters ie, every month for 3 years
-     * @param account address of the beneficiary for vesting
-     * @param amount  totalToken to be vested
+     * @dev Emitted when `value` tokens are moved from one account (`from`) to
+     * another (`to`).
+     *
+     * Note that `value` may be zero.
      */
-     
-     function setDefaultVesting(address account, uint256 amount) public onlyDeviTokenAndOwner returns(bool){
-         _setDefaultVesting(account, amount);
-         return true;
-     }
-     
-     /**
-      *@dev Internal function to set default vesting parameters
-      */
-      
-     function _setDefaultVesting(address account, uint256 amount)  internal {
-         require(account!=address(0));
-         VestedToken storage vested = vestedUser[account];
-         vested.cliff = _cliff;
-         vested.start = block.timestamp;
-         vested.duration += _duration;
-         vested.totalToken += amount;
-         vested.releasedToken = vested.releasedToken;
-         vested.revoked = _revoked;
-     }
-     
-     
-     /**
-     * @dev this will set the beneficiary with vesting 
-     * parameters provided
-     * @param account address of the beneficiary for vesting
-     * @param amount  totalToken to be vested
-     * @param cliff In seconds of one period in vesting
-     * @param duration In seconds of total vesting 
-     * @param startAt UNIX timestamp in seconds from where vesting will start
-     */
-     
-     function setVesting(address account, uint256 amount, uint256 cliff, uint256 duration, uint256 startAt ) public onlyDeviTokenAndOwner  returns(bool){
-         _setVesting(account, amount, cliff, duration, startAt);
-         return true;
-     }
-     
-     /**
-      * @dev Internal function to set default vesting parameters
-      * @param account address of the beneficiary for vesting
-      * @param amount  totalToken to be vested
-      * @param cliff In seconds of one period in vestin
-      * @param duration In seconds of total vesting duration
-      * @param startAt UNIX timestamp in seconds from where vesting will start
-      *
-      */
-     
-     function _setVesting(address account, uint256 amount, uint256 cliff, uint256 duration, uint256 startAt) internal {
-         
-         require(account!=address(0));
-         require(cliff<=duration);
-         VestedToken storage vested = vestedUser[account];
-         vested.cliff = cliff;
-         vested.start = startAt;
-         vested.duration += duration;
-         vested.totalToken += amount;
-         vested.releasedToken = vested.releasedToken;
-         vested.revoked = false;
-     }
+    event Transfer(address indexed from, address indexed to, uint256 value);
 
     /**
-     * @notice Transfers vested tokens to beneficiary.
-     * anyone can release their token 
+     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+     * a call to {approve}. `value` is the new allowance.
      */
-     
-    function releaseMyToken() public returns(bool) {
-        releaseToken(msg.sender);
-        return true;
-    }
-    
-     /**
-     * @notice Transfers vested tokens to the given account.
-     * @param account address of the vested user
-     */
-    function releaseToken(address account) public {
-       require(account != address(0));
-       VestedToken storage vested = vestedUser[account];
-       uint256 unreleasedToken = _releasableAmount(account);  // total releasable token currently
-       require(unreleasedToken>0);
-       vested.releasedToken = vested.releasedToken + (unreleasedToken);
-       DEVIToken.transfer(account,unreleasedToken);
-       emit TokenReleased(account, unreleasedToken);
-    }
-    
-    /**
-     * @dev Calculates the amount that has already vested but hasn't been released yet.
-     * @param account address of user
-     */
-    function _releasableAmount(address account) internal view returns (uint256) {
-        return _vestedAmount(account) - (vestedUser[account].releasedToken);
-    }
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 
-  
     /**
-     * @dev Calculates the amount that has already vested.
-     * @param account address of the user
+     * @dev Returns the amount of tokens in existence.
      */
-    function _vestedAmount(address account) internal view returns (uint256) {
-        VestedToken storage vested = vestedUser[account];
-        uint256 totalToken = vested.totalToken;
-        if(block.timestamp <  vested.start + (vested.cliff)){
-            return 0;
-        }else if(block.timestamp >= vested.start+(vested.duration) || vested.revoked){
-            return totalToken;
-        }else{
-            uint256 numberOfPeriods = (block.timestamp - (vested.start))/(vested.cliff);
-            return (totalToken*(numberOfPeriods*(vested.cliff)))/(vested.duration);
-        }
-    }
-    
+    function totalSupply() external view returns (uint256);
+
     /**
-     * @notice Allows the owner to revoke the vesting. Tokens already vested
-     * remain in the contract, the rest are returned to the owner.
-     * @param account address in which the vesting is revoked
+     * @dev Returns the amount of tokens owned by `account`.
      */
-    function revoke(address account) public onlyOwner {
-        VestedToken storage vested = vestedUser[account];
-        require(!vested.revoked);
-        uint256 balance = vested.totalToken;
-        uint256 unreleased = _releasableAmount(account);
-        uint256 refund = balance - (unreleased);
-        vested.revoked = true;
-        vested.totalToken = unreleased;
-        DEVIToken.transfer(owner(), refund);
-        emit VestingRevoked(account);
-    }
-    
-    
-    
-    
+    function balanceOf(address account) external view returns (uint256);
+
+    /**
+     * @dev Moves `amount` tokens from the caller's account to `to`.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Returns the remaining number of tokens that `spender` will be
+     * allowed to spend on behalf of `owner` through {transferFrom}. This is
+     * zero by default.
+     *
+     * This value changes when {approve} or {transferFrom} are called.
+     */
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256);
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * IMPORTANT: Beware that changing an allowance with this method brings the risk
+     * that someone may use both the old and the new allowance by unfortunate
+     * transaction ordering. One possible solution to mitigate this race
+     * condition is to first reduce the spender's allowance to 0 and set the
+     * desired value afterwards:
+     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+     *
+     * Emits an {Approval} event.
+     */
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Moves `amount` tokens from `from` to `to` using the
+     * allowance mechanism. `amount` is then deducted from the caller's
+     * allowance.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) external returns (bool);
 }
 
-contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
+// File: @openzeppelin/contracts/token/BEP20/extensions/IERC20Metadata.sol
+
+// OpenZeppelin Contracts v4.4.1 (token/BEP20/extensions/IERC20Metadata.sol)
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Interface for the optional metadata functions from the BEP20 standard.
+ *
+ * _Available since v4.1._
+ */
+interface IERC20Metadata is IBEP20 {
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
+// File: @openzeppelin/contracts/token/BEP20/BEP20.sol
+
+// OpenZeppelin Contracts (last updated v4.7.0) (token/BEP20/BEP20.sol)
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Implementation of the {IBEP20} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
+ *
+ * TIP: For a detailed writeup see our guide
+ * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
+ *
+ * We have followed general OpenZeppelin Contracts guidelines: functions revert
+ * instead returning `false` on failure. This behavior is nonetheless
+ * conventional and does not conflict with the expectations of BEP20
+ * applications.
+ *
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IBEP20-approve}.
+ */
+contract BEP20 is Context, IBEP20, IERC20Metadata {
     mapping(address => uint256) private _balances;
-
     mapping(address => mapping(address => uint256)) private _allowances;
-
     uint256 private _totalSupply;
-
-    TokenVesting public vestingContractAddress;
-    
     string private _name;
     string private _symbol;
 
@@ -368,10 +279,9 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * All two of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor() {
-        _name = "DEVIUM";
-        _symbol = "DEVI";
-        _mint(msg.sender, 100000000000 * 1e18 );
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
     }
 
     /**
@@ -395,89 +305,103 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * be displayed to a user as `5.05` (`505 / 10 ** 2`).
      *
      * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless this function is
+     * Ether and Wei. This is the value {BEP20} uses, unless this function is
      * overridden;
      *
      * NOTE: This information is only used for _display_ purposes: it in
      * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
+     * {IBEP20-balanceOf} and {IBEP20-transfer}.
      */
     function decimals() public view virtual override returns (uint8) {
         return 18;
     }
 
     /**
-     * @dev See {IERC20-totalSupply}.
+     * @dev See {IBEP20-totalSupply}.
      */
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply;
     }
 
     /**
-     * @dev See {IERC20-balanceOf}.
+     * @dev See {IBEP20-balanceOf}.
      */
-    function balanceOf(address account) public view virtual override returns (uint256) {
+    function balanceOf(
+        address account
+    ) public view virtual override returns (uint256) {
         return _balances[account];
     }
 
     /**
-     * @dev See {IERC20-transfer}.
+     * @dev See {IBEP20-transfer}.
      *
      * Requirements:
      *
-     * - `recipient` cannot be the zero address.
+     * - `to` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
+    function transfer(
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _transfer(owner, to, amount);
         return true;
     }
 
     /**
-     * @dev See {IERC20-allowance}.
+     * @dev See {IBEP20-allowance}.
      */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+    function allowance(
+        address owner,
+        address spender
+    ) public view virtual override returns (uint256) {
         return _allowances[owner][spender];
     }
 
     /**
-     * @dev See {IERC20-approve}.
+     * @dev See {IBEP20-approve}.
+     *
+     * NOTE: If `amount` is the maximum `uint256`, the allowance is not updated on
+     * `transferFrom`. This is semantically equivalent to an infinite approval.
      *
      * Requirements:
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        _approve(_msgSender(), spender, amount);
+    function approve(
+        address spender,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, amount);
         return true;
     }
 
     /**
-     * @dev See {IERC20-transferFrom}.
+     * @dev See {IBEP20-transferFrom}.
      *
      * Emits an {Approval} event indicating the updated allowance. This is not
-     * required by the EIP. See the note at the beginning of {ERC20}.
+     * required by the EIP. See the note at the beginning of {BEP20}.
+     *
+     * NOTE: Does not update the allowance if the current allowance
+     * is the maximum `uint256`.
      *
      * Requirements:
      *
-     * - `sender` and `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
-     * - the caller must have allowance for ``sender``'s tokens of at least
+     * - `from` and `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     * - the caller must have allowance for ``from``'s tokens of at least
      * `amount`.
      */
     function transferFrom(
-        address sender,
-        address recipient,
+        address from,
+        address to,
         uint256 amount
     ) public virtual override returns (bool) {
-        _transfer(sender, recipient, amount);
-
-        uint256 currentAllowance = _allowances[sender][_msgSender()];
-        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
-        unchecked {
-            _approve(sender, _msgSender(), currentAllowance - amount);
-        }
-
+        address spender = _msgSender();
+        _spendAllowance(from, spender, amount);
+        _transfer(from, to, amount);
         return true;
     }
 
@@ -485,7 +409,7 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * @dev Atomically increases the allowance granted to `spender` by the caller.
      *
      * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
+     * problems described in {IBEP20-approve}.
      *
      * Emits an {Approval} event indicating the updated allowance.
      *
@@ -493,8 +417,12 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      *
      * - `spender` cannot be the zero address.
      */
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender] + addedValue);
+    function increaseAllowance(
+        address spender,
+        uint256 addedValue
+    ) public virtual returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, allowance(owner, spender) + addedValue);
         return true;
     }
 
@@ -502,7 +430,7 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * @dev Atomically decreases the allowance granted to `spender` by the caller.
      *
      * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
+     * problems described in {IBEP20-approve}.
      *
      * Emits an {Approval} event indicating the updated allowance.
      *
@@ -512,18 +440,25 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * - `spender` must have allowance for the caller of at least
      * `subtractedValue`.
      */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        uint256 currentAllowance = _allowances[_msgSender()][spender];
-        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+    function decreaseAllowance(
+        address spender,
+        uint256 subtractedValue
+    ) public virtual returns (bool) {
+        address owner = _msgSender();
+        uint256 currentAllowance = allowance(owner, spender);
+        require(
+            currentAllowance >= subtractedValue,
+            "BEP20: decreased allowance below zero"
+        );
         unchecked {
-            _approve(_msgSender(), spender, currentAllowance - subtractedValue);
+            _approve(owner, spender, currentAllowance - subtractedValue);
         }
 
         return true;
     }
 
     /**
-     * @dev Moves `amount` of tokens from `sender` to `recipient`.
+     * @dev Moves `amount` of tokens from `from` to `to`.
      *
      * This internal function is equivalent to {transfer}, and can be used to
      * e.g. implement automatic token fees, slashing mechanisms, etc.
@@ -532,30 +467,29 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      *
      * Requirements:
      *
-     * - `sender` cannot be the zero address.
-     * - `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
      */
     function _transfer(
-        address sender,
-        address recipient,
+        address from,
+        address to,
         uint256 amount
     ) internal virtual {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-
-        _beforeTokenTransfer(sender, recipient, amount);
-
-        uint256 senderBalance = _balances[sender];
-        require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        require(from != address(0), "BEP20: transfer from the zero address");
+        require(to != address(0), "BEP20: transfer to the zero address");
+        _beforeTokenTransfer(from, to, amount);
+        uint256 fromBalance = _balances[from];
+        require(
+            fromBalance >= amount,
+            "BEP20: transfer amount exceeds balance"
+        );
         unchecked {
-            _balances[sender] = senderBalance - amount;
+            _balances[from] = fromBalance - amount;
         }
-        _balances[recipient] += amount;
-
-        emit Transfer(sender, recipient, amount);
-
-        _afterTokenTransfer(sender, recipient, amount);
+        _balances[to] += amount;
+        emit Transfer(from, to, amount);
+        _afterTokenTransfer(from, to, amount);
     }
 
     /** @dev Creates `amount` tokens and assigns them to `account`, increasing
@@ -568,14 +502,11 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * - `account` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: mint to the zero address");
-
+        require(account != address(0), "BEP20: mint to the zero address");
         _beforeTokenTransfer(address(0), account, amount);
-
         _totalSupply += amount;
         _balances[account] += amount;
         emit Transfer(address(0), account, amount);
-
         _afterTokenTransfer(address(0), account, amount);
     }
 
@@ -591,46 +522,18 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
      * - `account` must have at least `amount` tokens.
      */
     function _burn(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: burn from the zero address");
-
+        require(account != address(0), "BEP20: burn from the zero address");
         _beforeTokenTransfer(account, address(0), amount);
-
         uint256 accountBalance = _balances[account];
-        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        require(accountBalance >= amount, "BEP20: burn amount exceeds balance");
         unchecked {
             _balances[account] = accountBalance - amount;
         }
         _totalSupply -= amount;
-
         emit Transfer(account, address(0), amount);
-
         _afterTokenTransfer(account, address(0), amount);
     }
 
-    function burn(uint256 amount) public virtual {
-        _burn(_msgSender(), amount);
-    }
-
-    /**
-     * @dev Destroys `amount` tokens from `account`, deducting from the caller's
-     * allowance.
-     *
-     * See {ERC20-_burn} and {ERC20-allowance}.
-     *
-     * Requirements:
-     *
-     * - the caller must have allowance for ``accounts``'s tokens of at least
-     * `amount`.
-     */
-    function burnFrom(address account, uint256 amount) public virtual {
-        uint256 currentAllowance = allowance(account, _msgSender());
-        require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
-        unchecked {
-            _approve(account, _msgSender(), currentAllowance - amount);
-        }
-        _burn(account, amount);
-    }
-    
     /**
      * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
      *
@@ -649,11 +552,35 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
         address spender,
         uint256 amount
     ) internal virtual {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-
+        require(owner != address(0), "BEP20: approve from the zero address");
+        require(spender != address(0), "BEP20: approve to the zero address");
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
+    }
+
+    /**
+     * @dev Updates `owner` s allowance for `spender` based on spent `amount`.
+     *
+     * Does not update the allowance amount in case of infinite allowance.
+     * Revert if not enough allowance is available.
+     *
+     * Might emit an {Approval} event.
+     */
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(
+                currentAllowance >= amount,
+                "BEP20: insufficient allowance"
+            );
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
+        }
     }
 
     /**
@@ -695,41 +622,22 @@ contract DEVItoken is Context, IERC20, IERC20Metadata, Ownable {
         address to,
         uint256 amount
     ) internal virtual {}
+}
 
+// File: Token.sol
 
+pragma solidity ^0.8.9;
 
-    /**
-     * @dev Set Vesting Token Smart contract Address before starting vesting
-     * @param tokenVestingAddress Smart conract Address of the Vesting Smart contract
-     */ 
-    function setTokenVestingAddress(TokenVesting tokenVestingAddress) external onlyOwner returns(bool){
-        vestingContractAddress = tokenVestingAddress;
-        return true;
+contract MyToken is BEP20, Ownable {
+    constructor() BEP20("DEVIUM", "DEVI") {
+        _mint(msg.sender, 1000000000 * 10 ** decimals());
+}
+
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
     }
-    
-    
-    /**
-     * @dev Vesting users token by default parameters
-     * @param account address of the user 
-     * @param amount the amount to be vested
-     */
-     function setDefaultVestingToken(address account, uint256 amount) external onlyOwner returns(bool){
-         vestingContractAddress.setDefaultVesting(account, amount);
-         _transfer(msg.sender,address(vestingContractAddress), amount);
-         return true;
-     }
-     
-    /**
-     * @dev Vesting users token by given parameters
-     * @param account address of the beneficiary for vesting
-     * @param amount  totalToken to be vested
-     * @param cliff In seconds of one period in vestin
-     * @param duration In seconds of total vesting duration
-     * @param startAt UNIX timestamp in seconds from where vesting will start
-     */
-     function setVestingToken(address account, uint256 amount, uint256 cliff, uint256 duration, uint256 startAt) external onlyOwner returns(bool){
-         vestingContractAddress.setVesting(account, amount, cliff, duration, startAt);
-         _transfer(msg.sender ,address(vestingContractAddress), amount);
-         return true;
-     }
+
+    function burn(address from, uint256 amount) public onlyOwner {
+        _burn(from, amount);
+    }
 }
